@@ -4,7 +4,7 @@ const readFile = util.promisify(fs.readFile);
 
 async function parseCsv(inFile) {
   const siteUrls = [];
-  return await readFile(inFile, function(err, data) {
+  return await readFile(inFile, "utf8", function(err, data) {
     if (err){
       console.error('could not read file properly', err);
       return;
