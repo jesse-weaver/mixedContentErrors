@@ -9,5 +9,4 @@ parseCsv("./containerTagUrls.csv").then((result) => {
 //  result.forEach(function(element) {
 //  console.log(element);
 //  });
-
 });

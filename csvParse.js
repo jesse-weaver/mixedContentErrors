@@ -16,7 +16,7 @@ async function parseCsv(inFile) {
         siteUrls.push(y[1]);
       }
     }
-    console.log(siteUrls);
+    // console.log(siteUrls);
     return siteUrls;
   });
 }
@@ -24,20 +24,3 @@ async function parseCsv(inFile) {
 module.exports = {
   parseCsv
 };
-
-
-// const fs = require('fs');
-// const util = require('util');
-//
-// // Convert fs.readFile into Promise version of same
-// const readFile = util.promisify(fs.readFile);
-//
-// async function getStuff() {
-//   return await readFile('test');
-// }
-//
-// // Can't use `await` outside of an async function so you need to chain
-// // with then()
-// getStuff().then(data => {
-//   console.log(data);
-// })
