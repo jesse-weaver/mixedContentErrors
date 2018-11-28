@@ -1,14 +1,14 @@
 // Node modules
 const puppeteer = require('puppeteer')
-import parseCsv from './parseCsv';
-console.log(parseCsv);
+const parseCsv = require ('./csvParse').parseCsv;
+//console.log(parseCsv);
 const EXAMPLE_URL = 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html';
 //const EXAMPLE_URL = 'https://mattjamesvisuals.com'
 
 const main = async () => {
   const browser = await puppeteer.launch({headless: false})
   const page = await browser.newPage()
-  const siteUrls = await parseCsv("./containerTagUrls.csv");
+  //const siteUrls = await parseCsv("./containerTagUrls.csv");
 
   // Get a handle for the client used by the page object to communicate with
   // the browser through the DevTools protocol
@@ -22,7 +22,7 @@ const main = async () => {
     const {url, resourceType, method} = request
     // Store a reference to that request, we'll need to get more information
     // about Mixed Content errors later
-    console.log(request.url());
+    //console.log(request.url());
     failedRequests.set(request._requestId, {
       url: request.url(),
       resourceType: request.resourceType(),
@@ -34,7 +34,7 @@ const main = async () => {
   page._client.on('Network.loadingFailed', event => {
     if (Object.is(event.blockedReason, 'mixed-content')) {
       mixedContentIssues.add(event.requestId)
-      console.log(event);
+    //  console.log(event);
     }
   })
 
