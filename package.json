@@ -1,0 +1,21 @@
+{
+  "name": "puppeteermixedcontent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "csvParse.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattjamesvisuals/mixedContentErrors.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mattjamesvisuals/mixedContentErrors/issues"
+  },
+  "homepage": "https://github.com/mattjamesvisuals/mixedContentErrors#readme",
+  "dependencies": {
+  }
+}

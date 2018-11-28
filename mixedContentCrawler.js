@@ -1,6 +1,5 @@
 // Node modules
 const puppeteer = require('puppeteer')
-const parseCsv = require('./csvParse').parseCsv;
 const fs = require('fs');
 const parse = require('csv-parse')
 const EXAMPLE_URL = 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html';
@@ -9,11 +8,8 @@ const main = async () => {
   const browser = await puppeteer.launch({
     headless: false
   })
-  console.log(1);
-
 
   const page = await browser.newPage()
-  console.log(3);
   // Get a handle for the client used by the page object to communicate with
   // the browser through the DevTools protocol
   const devToolsClient = page._client
@@ -30,7 +26,6 @@ const main = async () => {
     } = request
     // Store a reference to that request, we'll need to get more information
     // about Mixed Content errors later
-    console.log(request.url());
     failedRequests.set(request._requestId, {
       url: request.url(),
       resourceType: request.resourceType(),
@@ -47,48 +42,50 @@ const main = async () => {
   })
 
   await page.goto(EXAMPLE_URL)
-  fs.readFile("./containerTagUrls.csv", 'utf8', function(err, contents) {
-      console.log("contents 1 :: " + contents);
-      var file = parseCsv(contents);
-      console.log("contents  2 :: " + contents);
-      parse(contents,  function(err, output){
-        var count = 5;
-        output.forEach(async function(value){
-          var URI = value.toString().split(",")[1];
-          if(URI != null && URI.startsWith("https") && count > 0) {
-              //count = count -1;
-              console.log("URI :: " + URI);
-              const pagee = await browser.newPage()
-              pagee.goto(URI);
+  //This is where were reading the csv file
+  fs.readFile("./containerTagUrls_smaller.csv", 'utf8', function(err, contents) {
+   //console.log("contents 1 :: " + contents);
+    parse(contents, function(err, output) {
+      var count = 5;
+      output.forEach(async function(value) {
+        var URI = value.toString().split(",")[1];
+        if (URI != null && URI.startsWith("https") && count > 0) {
+          //count = count -1;
+          //console.log("URI :: " + URI);
+          const pagee = await browser.newPage()
+          pagee.goto(URI);
 
-              // Event fired when a request fired by the page failed
+          // Event fired when a request fired by the page failed
 
-              pagee.on('requestfailed', request => {
-                const {
-                  url,
-                  resourceType,
-                  method
-                } = request
-                // Store a reference to that request, we'll need to get more information
-                // about Mixed Content errors later
-                console.log(request.url());
-                failedRequests.set(request._requestId, {
-                  url: request.url(),
-                  resourceType: request.resourceType(),
-                  method: request.method()
-                })
-              })
-                // If a request failed due to a Mixed Content issue, log it
-                pagee._client.on('Network.loadingFailed', event => {
-                  if (Object.is(event.blockedReason, 'mixed-content')) {
-                    mixedContentIssues.add(event.requestId)
-                    console.log("mixed-content event :: " + event);
-                  }
-                })
-          }
+          pagee.on('requestfailed', request => {
+            const {
+              url,
+              resourceType,
+              method
+            } = request
+            // Store a reference to that request, we'll need to get more information
+            // about Mixed Content errors later
+            console.log("checking url " + request.url());
+            failedRequests.set(request._requestId, {
+              url: request.url(),
+              resourceType: request.resourceType(),
+              method: request.method()
+            })
+          })
+          // If a request failed due to a Mixed Content issue, log it
+          pagee._client.on('Network.loadingFailed', event => {
+            if (Object.is(event.blockedReason, 'mixed-content')) {
+              mixedContentIssues.add(event.requestId)
+              console.log("mixed-content event :: " + event);
+            }
+          })
+          console.log('closing page...');
+            await pagee.close();
+            console.log('page closed.');
+        }
 
-        });
-      })
+      });
+    })
 
   });
   //console.log(failedRequests, 'failedRequests');
@@ -100,14 +97,15 @@ const main = async () => {
       resourceType
     } = failedRequests.get(requestId)
     //console.log(`Mixed Content warning when sending ${method} request to ${url} (${resourceType})`)
-    console.log(`Mixed Content warning when sending `, failedRequests.get(requestId))
+    console.log("Mixed Content warning when sending ", failedRequests.get(requestId))
 
   }
 
-  //browser.close()
+  //await browser.close();
+
 }
 try {
   main()
 } catch (error) {
-  //console.error(error)
+  console.error(error)
 }
