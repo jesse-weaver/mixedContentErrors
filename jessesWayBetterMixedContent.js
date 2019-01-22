@@ -6,7 +6,7 @@
 
 const csv = require('csv-parse');
 const fs = require('fs');
-const fetch = require('fetch');
+const fetch = require('node-fetch');
 
 function parseCSV(file) {
   return new Promise(function(resolve, reject) {
@@ -32,37 +32,18 @@ parseCSV("./containerTagUrls.csv").then((data) => {
 }, (reason) => {
   console.error(reason); // error;
 }).then(sites => {
-  const results = {
-    "200": [],
-    "204": [],
-    "302": [],
-    "400": [],
-    "404": [],
-  };
-
-  //loop though the site array and console.log title and url for each site
-  sites.forEach(async function(site) {
-    const title = site[0];
-    const url = site[1];
-
-
-    //loop through each site and determine if there redirects
-    await fetch.fetchUrl(url, {
-      maxRedirects: 3
-    }, (error, meta, body) => {
-      console.log(url + ':' + meta.status);
-      results[meta.status].push(url);
-
-
-    });
-    return results;
+  return Promise.all(sites.map(site => fetch(site[1])));
+}).then(data => {
+  const results = {};
+  data.forEach(item => {
+    if (!results[item.status]) {
+      results[item.status] = [item.url];
+    } else {
+      results[item.status].push(item.url);
+    }
   });
-
-
-
-}).then(report => {
-  console.log(report);
+  return results;
+}).then(results => {
+  //run puppeter for mixed content errors.
+  console.log('final results:', results);
 });
-
-
-//run puppeter for mixed content errors.
