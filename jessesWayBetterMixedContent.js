@@ -30,20 +30,25 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   const sites = data.filter(site => site[1].startsWith('https'));
   return sites;
 }, (reason) => {
-  console.error(reason); // error;
+  // if there is an error parsing CSV
+  console.error(reason);
 }).then(sites => {
-  return Promise.all(sites.map(site => fetch(site[1])));
+  // fetch all sites and return and promisify all of them before next step
+  return Promise.all(sites.map(site => fetch(site[1], { redirect: 'manual' })));
 }).then(data => {
+  // determine the status code response of each site and track them
   const results = {};
   data.forEach(item => {
+    // if the status doesn't exist in the object yet, add it with an empty array
     if (!results[item.status]) {
-      results[item.status] = [item.url];
-    } else {
-      results[item.status].push(item.url);
+      results[item.status] = [];
     }
+    // add the url to array of urls under this status code
+    results[item.status].push(item.url);
   });
   return results;
 }).then(results => {
-  //run puppeter for mixed content errors.
+  // Take the results based on status code run the results through
+  // the puppeteer mixed content errors script
   console.log('final results:', results);
 });
