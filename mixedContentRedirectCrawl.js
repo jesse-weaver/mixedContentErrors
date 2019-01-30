@@ -1,15 +1,10 @@
-//parse the .csv to get the url's
-//batch 5 urls at a time
-//run puppeteer in order to check for mixed content or *redirects until url's are done then close them then repeat for all url's
-//close script
-
-
 const csv = require('csv-parse');
 const fs = require('fs');
 const fetch = require('node-fetch');
 const puppeteer = require('puppeteer');
 const lodash = require('lodash');
 
+// This function parses the CSV and returns the parsed data
 function parseCSV(file) {
   return new Promise(function(resolve, reject) {
     var parser = csv({
@@ -27,6 +22,7 @@ function parseCSV(file) {
   });
 }
 
+// This function does the scanning for mixed content errors using puppeteer
 const scanMixedContent = async (url) => {
   const browser = await puppeteer.launch({
     headless: true
@@ -74,7 +70,9 @@ const scanMixedContent = async (url) => {
   return failedRequests;
 }
 
+// This is where the magic happens
 
+// first parse the CSV
 parseCSV("./containerTagUrls.csv").then((data) => {
   const sites = data.filter(site => site[1].startsWith('https'));
   return sites;
@@ -83,8 +81,10 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   console.error(reason);
 }).then(sites => {
   // fetch all sites and return a single promise when all are complete
- return Promise.all(sites.map(site => fetch(site[1], {
-    redirect: 'manual'
+  // return both the CSV data and the responses
+  return Promise.all(sites.map(site => fetch(site[1], {
+     redirect: 'follow',
+     follow: 1
   }))).then((responses) => {
     return {
       sites: sites,
@@ -98,37 +98,29 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   const sites = data.sites;
 
   data.responses.forEach(item => {
-
     // if the status doesn't exist in the object yet, add it with an empty array
     if (!results[item.status]) {
       results[item.status] = [];
     }
-const matchUrl = lodash.findIndex(sites, site => { return site[1] == item.url; });
-//console.log(sites[matchUrl]);
+
+    // try to find the matching site name for the request
+    const urlMatchIndex = lodash.findIndex(sites, site => { return site[1] == item.url; });
     // add the url to array of urls under this status code
-    //make a json object that has the siteName and the URl push it on the results array.
-  //    addToObject(item) {
-       results.push({
-       siteName: site[0],
+    // make a json object that has the siteName and the Url to push on the results array.
+     results[item.status].push({
+       siteName: (urlMatchIndex > 0 ? sites[urlMatchIndex][0] : 'NOT FOUND'),
        url: item.url
      });
-   //};
-
-    console.log(results);
-    //results[item.status].push(item.url);
-  // return results[item.status].push = {
-  //     siteName:
-  //     url:
-  //   };
    });
+  console.log(results);
   return results;
 }).then(results => {
   // Take the results based on status code run the results through
   // the puppeteer mixed content errors script
   //console.log('final results:', results);
   return scanMixedContent('https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html');
-}).then((errors) => {
-  //console.log(mistakes);
+}).then((mixedContentErrors) => {
+  console.log(mixedContentErrors);
 }).catch((error) => {
   console.error('Encountered an error while doing this thang:');
   console.error(error);
