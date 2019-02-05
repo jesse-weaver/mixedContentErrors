@@ -1,26 +1,8 @@
-const csv = require('csv-parse');
-const fs = require('fs');
 const fetch = require('node-fetch');
 const puppeteer = require('puppeteer');
 const lodash = require('lodash');
+const parseCSV = require('./parseCSV').parseCSV;
 
-// This function parses the CSV and returns the parsed data
-function parseCSV(file) {
-  return new Promise(function(resolve, reject) {
-    var parser = csv({
-        delimiter: ','
-      },
-      function(err, data) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-        parser.end();
-      });
-    fs.createReadStream(file).pipe(parser);
-  });
-}
 
 // This function does the scanning for mixed content errors using puppeteer
 const scanMixedContent = async (urls) => {
@@ -57,24 +39,20 @@ const scanMixedContent = async (urls) => {
     }
   });
 
-  //await page.goto(urls.forEach() => (url){
-await urls.forEach( async url => {
- try {await page.goto(url);
- }
- catch (errors){
-   console.log(errors)
- };
-});
-
-
-
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    console.log(`attempting to scan mixed content errors for ${url}`)
+    const promise = page.waitForNavigation({ waitUntil: 'networkidle2' });
+    await page.goto(`${url}`);
+    await promise;
+  }
 
   for (let requestId of mixedContentIssues) {
     const {
       method,
       url,
       resourceType
-    } = failedRequests.get(requestId)
+    } = failedRequests.get(requestId);
     //console.log(`Mixed Content warning when sending ${method} request to ${url} (${resourceType})`)
   }
   browser.close();
@@ -94,15 +72,16 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   // fetch all sites and return a single promise when all are complete
   // return both the CSV data and the responses
   return Promise.all(sites.map(async site => {
+    const [siteName, url] = site;
     try {
-      const response = await fetch(site[1], {
+      const response = await fetch(url, {
         redirect: 'follow',
         follow: 1
       });
       return {
         response: response,
-        siteName: site[0],
-        url: site[1]
+        siteName,
+        url
       }
     } catch (error) {
       if (error.type == 'max-redirect') {
@@ -110,8 +89,8 @@ parseCSV("./containerTagUrls.csv").then((data) => {
           response: {
             status: 'max-redirect'
           },
-          siteName: site[0],
-          url: site[1]
+          siteName,
+          url
         }
       }
       console.log(error);
@@ -124,7 +103,6 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     };
   });
 }).then(data => {
-  //console.log(data);
   // determine the status code response of each site and track them
   const results = {};
 
@@ -153,6 +131,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     'https://d3ir0rz7vxwgq5.cloudfront.net/mwData.min.js',
     'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html'
   ];
+  console.log('- - - -  scanning urls for mixed content errors');
   return scanMixedContent(urls);
 }).then((mixedContentErrors) => {
   console.log(mixedContentErrors);
