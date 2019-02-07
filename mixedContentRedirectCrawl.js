@@ -5,7 +5,7 @@ const parseCSV = require('./parseCSV').parseCSV;
 
 
 // This function does the scanning for mixed content errors using puppeteer
-const scanMixedContent = async (urls) => {
+const scanMixedContent = async (sites) => {
   const browser = await puppeteer.launch({
     headless: true
   })
@@ -20,6 +20,7 @@ const scanMixedContent = async (urls) => {
 
   // Event fired when a request fired by the page failed
   page.on('requestfailed', request => {
+    //console.log(request);
     // Store a reference to that request, we'll need to get more information
     // about Mixed Content errors later
     failedRequests.set(request._requestId, {
@@ -39,15 +40,20 @@ const scanMixedContent = async (urls) => {
     }
   });
 
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
-    console.log(`attempting to scan mixed content errors for ${url}`)
-    const promise = page.waitForNavigation({ waitUntil: 'networkidle2' });
-    await page.goto(`${url}`);
-    await promise;
+  for (let i = 0; i < sites.length; i++) {
+    console.log(sites[i]);
+    const { url, status, siteName } = sites[i];
+    if (status < 400) {
+      console.log(`attempting to scan mixed content errors for ${siteName}`)
+      const promise = page.waitForNavigation({ waitUntil: 'networkidle2' });
+      await page.goto(`${url}`);
+      await promise;
+    }
+
   }
 
   for (let requestId of mixedContentIssues) {
+    console.log(failedRequests);
     const {
       method,
       url,
@@ -87,7 +93,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
       if (error.type == 'max-redirect') {
         return {
           response: {
-            status: 'max-redirect'
+            status: 'too many re-directs'
           },
           siteName,
           url
@@ -104,35 +110,39 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   });
 }).then(data => {
   // determine the status code response of each site and track them
-  const results = {};
-
+  const results = [];
   data.responses.forEach(item => {
     const fetchResponse = item.response;
-    // if the status doesn't exist in the object yet, add it with an empty array
-    if (!results[fetchResponse.status]) {
-      results[fetchResponse.status] = [];
-    }
-
     // add the url to array of urls under this status code
     // make a json object that has the siteName and the Url to push on the results array.
-    results[fetchResponse.status].push({
+    results.push({
       siteName: item.siteName,
-      url: item.url
+      url: item.url,
+      status: fetchResponse.status,
+      mixedContent: []
     });
   });
-  console.log(results);
+//  console.log(results);
   return results;
 }).then(results => {
+
+
+
+
+
+
+
+
   // Take the results based on status code run the results through
   // the puppeteer mixed content errors script
   //console.log('final results:', results);
-  const urls = [
-    'https://pe.intentiq.com/profiles_engine/ProfilesEngineServlet?at=2&mi=10&dpt=',
-    'https://d3ir0rz7vxwgq5.cloudfront.net/mwData.min.js',
-    'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html'
-  ];
+  const google = [{
+    siteName: 'google',
+    url: 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html',
+    status: 200,
+  }]
   console.log('- - - -  scanning urls for mixed content errors');
-  return scanMixedContent(urls);
+  return scanMixedContent(google);
 }).then((mixedContentErrors) => {
   console.log(mixedContentErrors);
 }).catch((error) => {
