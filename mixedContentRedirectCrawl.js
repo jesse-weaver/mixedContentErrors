@@ -4,6 +4,7 @@ const lodash = require('lodash');
 const parseCSV = require('./parseCSV').parseCSV;
 
 
+
 // This function does the scanning for mixed content errors using puppeteer
 const scanMixedContent = async (sites) => {
   const browser = await puppeteer.launch({
@@ -17,17 +18,24 @@ const scanMixedContent = async (sites) => {
 
   let failedRequests = new Map()
   let mixedContentIssues = new Set()
+  let currentRunSite  = '';
 
   // Event fired when a request fired by the page failed
   page.on('requestfailed', request => {
     //console.log(request);
     // Store a reference to that request, we'll need to get more information
     // about Mixed Content errors later
-    failedRequests.set(request._requestId, {
-      url: request.url(),
-      resourceType: request.resourceType(),
-      method: request.method()
-    });
+    const siteIndex = lodash.findIndex(sites, function(o) { return o.siteName == currentRunSite });
+sites[siteIndex].mixedContent.push({
+  url: request.url(),
+  resourceType: request.resourceType(),
+  method: request.method()
+});
+    // failedRequests.set(currentRunSite, {
+    //   url: request.url(),
+    //   resourceType: request.resourceType(),
+    //   method: request.method()
+    // });
   });
   page.on('close', request => {
     return failedRequests;
@@ -43,6 +51,7 @@ const scanMixedContent = async (sites) => {
   for (let i = 0; i < sites.length; i++) {
     console.log(sites[i]);
     const { url, status, siteName } = sites[i];
+    currentRunSite = siteName;
     if (status < 400) {
       console.log(`attempting to scan mixed content errors for ${siteName}`)
       const promise = page.waitForNavigation({ waitUntil: 'networkidle2' });
@@ -52,17 +61,17 @@ const scanMixedContent = async (sites) => {
 
   }
 
-  for (let requestId of mixedContentIssues) {
-    console.log(failedRequests);
-    const {
-      method,
-      url,
-      resourceType
-    } = failedRequests.get(requestId);
-    //console.log(`Mixed Content warning when sending ${method} request to ${url} (${resourceType})`)
-  }
+  // for (let requestId of mixedContentIssues) {
+  //   console.log(failedRequests);
+  //   const {
+  //     method,
+  //     url,
+  //     resourceType
+  //   } = failedRequests.get(requestId);
+  //   //console.log(`Mixed Content warning when sending ${method} request to ${url} (${resourceType})`)
+  // }
   browser.close();
-  return failedRequests;
+  return sites;
 }
 
 // This is where the magic happens
@@ -122,7 +131,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
       mixedContent: []
     });
   });
-//  console.log(results);
+  //console.log(results);
   return results;
 }).then(results => {
 
@@ -140,9 +149,10 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     siteName: 'google',
     url: 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html',
     status: 200,
+    mixedContent: []
   }]
   console.log('- - - -  scanning urls for mixed content errors');
-  return scanMixedContent(google);
+  return scanMixedContent(results);
 }).then((mixedContentErrors) => {
   console.log(mixedContentErrors);
 }).catch((error) => {
