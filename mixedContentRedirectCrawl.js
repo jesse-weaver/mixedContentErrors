@@ -92,7 +92,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     try {
       const response = await fetch(url, {
         redirect: 'follow',
-        follow: 3
+        follow: 1
       });
       return {
         response: response,
@@ -152,20 +152,25 @@ parseCSV("./containerTagUrls.csv").then((data) => {
 
 const table = new Table({
     head: ['site-name', 'url', 'status', 'mixed-content']
-  , colWidths: [40, 40, 25, 25]
+  , colWidths: [55, 55, 25, 25]
 });
 const formatted = sorted.map( obj => {
   let status = obj.status;
   let siteName = obj.siteName;
 
-  if (status >= 400 ) {
-    status = chalk.red(status);
-    siteName = chalk.red(siteName);
-  }
   if (status == 'too many re-directs' ) {
     status = chalk.yellow(status);
     siteName = chalk.yellow(siteName);
   }
+
+  if (status >= 400 ) {
+    status = chalk.red(status);
+    siteName = chalk.red(siteName);
+  }
+  else status = chalk.green(status);
+       siteName = chalk.green(siteName);
+
+
   return  [siteName, obj.url, status, JSON.stringify(obj.mixedContent)];
 });
 formatted.forEach(item => {
