@@ -3,7 +3,7 @@ const puppeteer = require('puppeteer');
 const lodash = require('lodash');
 const parseCSV = require('./parseCSV').parseCSV;
 const Table = require('cli-table');
-const chalk = require ('chalk');
+const chalk = require('chalk');
 
 
 // This function does the scanning for mixed content errors using puppeteer
@@ -19,19 +19,21 @@ const scanMixedContent = async (sites) => {
 
   let failedRequests = new Map()
   let mixedContentIssues = new Set()
-  let currentRunSite  = '';
+  let currentRunSite = '';
 
   // Event fired when a request fired by the page failed
   page.on('requestfailed', request => {
     //console.log(request);
     // Store a reference to that request, we'll need to get more information
     // about Mixed Content errors later
-    const siteIndex = lodash.findIndex(sites, function(o) { return o.siteName == currentRunSite });
-sites[siteIndex].mixedContent.push({
-  url: request.url(),
-  resourceType: request.resourceType(),
-  method: request.method()
-});
+    const siteIndex = lodash.findIndex(sites, function(o) {
+      return o.siteName == currentRunSite
+    });
+    sites[siteIndex].mixedContent.push({
+      url: request.url(),
+      resourceType: request.resourceType(),
+      method: request.method()
+    });
     // failedRequests.set(currentRunSite, {
     //   url: request.url(),
     //   resourceType: request.resourceType(),
@@ -49,13 +51,19 @@ sites[siteIndex].mixedContent.push({
     }
   });
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < sites.length; i++) {
     //console.log(sites[i]);
-    const { url, status, siteName } = sites[i];
+    const {
+      url,
+      status,
+      siteName
+    } = sites[i];
     currentRunSite = siteName;
     if (status < 400) {
       //console.log(`attempting to scan mixed content errors for ${siteName}`)
-      const promise = page.waitForNavigation({ waitUntil: 'networkidle2' });
+      const promise = page.waitForNavigation({
+        waitUntil: 'networkidle2'
+      });
       await page.goto(`${url}`);
       await promise;
     }
@@ -92,7 +100,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     try {
       const response = await fetch(url, {
         redirect: 'follow',
-        follow: 1
+        follow: 3
       });
       return {
         response: response,
@@ -138,47 +146,55 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   // Take the results based on status code run the results through
   // the puppeteer mixed content errors script
   //console.log('final results:', results);
-  const google = [{
+  const google = {
     siteName: 'google',
     url: 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html',
     status: 200,
     mixedContent: []
-  }]
+  }
   //console.log('- - - -  scanning urls for mixed content errors');
+  results.unshift(google);
   return scanMixedContent(results);
 }).then((mixedContentErrors) => {
   //console.log(mixedContentErrors);
-  const sorted = lodash.sortBy(mixedContentErrors, [function(o) { return o.status; }]);
+  const sorted = lodash.sortBy(mixedContentErrors, [function(o) {
+    return String(o.status);
+  }]);
 
-const table = new Table({
-    head: ['site-name', 'url', 'status', 'mixed-content']
-  , colWidths: [55, 55, 25, 25]
-});
-const formatted = sorted.map( obj => {
-  let status = obj.status;
-  let siteName = obj.siteName;
+  const table = new Table({
+    head: ['site-name', 'url', 'status', 'mixed-content'],
+    colWidths: [55, 55, 25, 55]
+  });
+  const alertUrls = sorted.filter(site => {
+    return site.status >= 400 || site.status == 'too many re-directs' || site.mixedContent.length > 0;
+  });
 
-  if (status == 'too many re-directs' ) {
-    status = chalk.yellow(status);
-    siteName = chalk.yellow(siteName);
-  }
-
-  if (status >= 400 ) {
-    status = chalk.red(status);
-    siteName = chalk.red(siteName);
-  }
-  else status = chalk.green(status);
-       siteName = chalk.green(siteName);
+  const formatted = alertUrls.map(obj => {
+    let status = obj.status;
+    let siteName = obj.siteName;
 
 
-  return  [siteName, obj.url, status, JSON.stringify(obj.mixedContent)];
-});
-formatted.forEach(item => {
-  table.push(item);
-});
-// table is an Array, so you can `push`, `unshift`, `splice` and friends
 
-console.log(table.toString());
+    if (status == 'too many re-directs') {
+      status = chalk.yellow(status);
+      siteName = chalk.yellow(siteName);
+    }
+
+    if (status >= 400) {
+      status = chalk.red(status);
+      siteName = chalk.red(siteName);
+    } else status = chalk.green(status);
+    siteName = chalk.green(siteName);
+
+
+    return [siteName, obj.url, status, JSON.stringify(obj.mixedContent)];
+  });
+  formatted.forEach(item => {
+    table.push(item);
+  });
+  // table is an Array, so you can `push`, `unshift`, `splice` and friends
+
+  console.log(table.toString());
 }).catch((error) => {
   console.error('Encountered an error while doing this thang:');
   console.error(error);
