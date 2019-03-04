@@ -1,142 +1,53 @@
-//* 10 * * * /usr/local/bin/node /Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/mixedContentRedirectCrawl.js > /Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/results.txt
-
-
-const fetch = require('node-fetch');
-const parseCSV = require('./parseCSV').parseCSV;
-const Table = require('cli-table');
 const lodash = require('lodash');
-const chalk = require('chalk');
-const scanMixedContent = require('./scanMixedContentFunction').scanMixedContent;
-const {dataSelection} = require('./DbUtility');
-console.log('starting crawl');
+const { parseCSV } = require('./parseCSV');
+const { scanMixedContent } = require('./scanMixedContentFunction');
+const { formatData, fetchSites } = require('./utils');
 
-// This is where the magic happens
-dataSelection().then((data) => {
-  console.log(data);
-});
-// first parse the CSV
-parseCSV("/Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/containerTagUrls.csv").then((data) => {
-  const dbData = dataSelection();
+const main = async () => {
+  let sites;
 
-  const sites = data.filter(site => site[1].startsWith('https'));
-  return sites;
-}, (reason) => {
-  // if there is an error parsing CSV
-  console.error(reason);
-}).then(sites => {
-  // fetch all sites and return a single promise when all are complete
-  // return both the CSV data and the responses
-  return Promise.all(sites.map(async site => {
-    const [siteName, url] = site;
-    try {
-      const response = await fetch(url, {
-        redirect: 'follow',
-        follow: 2
-      });
-      return {
-        response: response,
-        siteName,
-        url
-      }
-    } catch (error) {
-      if (error.type == 'max-redirect') {
-        return {
-          response: {
-            status: 'too many re-directs'
-          },
-          siteName,
-          url
-        }
-      }
-      if (['ECONNREFUSED', 'ENOTFOUND','CERT_HAS_EXPIRED'].includes(error.code)) {
-        return {
-          response: {
-            status: error.code
-          },
-          siteName,
-          url
-        }
-      }
-      console.log('error fetching site', error);
-    }
+  // parse the CSV to get the sites we are scanning
+  try {
+    const csvData = await parseCSV("./containerTagUrls.csv");
+    sites = csvData.filter(site => site[1].startsWith('https'));
+  } catch (csvParseError) {
+    console.log('Could not parse CSV file', csvParseError);
+  }
 
-  })).then((responses) => {
-    return {
-      responses: responses
-    };
-  });
-}).then(data => {
-  // determine the status code response of each site and track them
-  const results = [];
-  data.responses.forEach(item => {
-    if (!item) {
-      return;
-    }
-    const fetchResponse = item.response
+  // fetch each site and see if it works or has too many redirects
+  const responses = await fetchSites(sites);
+  const fetchResults = [];
+  responses.forEach(item => {
+    const fetchResponse = item.response;
     // add the url to array of urls under this status code
     // make a json object that has the siteName and the Url to push on the results array.
-    results.push({
+    fetchResults.push({
       siteName: item.siteName,
       url: item.url,
       status: fetchResponse.status,
       mixedContent: []
     });
   });
-  //console.log(results);
-  return results;
-}).then(results => {
-  // Take the results based on status code run the results through
-  // the puppeteer mixed content errors script
-  //console.log('final results:', results);
-  const google = {
-    siteName: 'google',
-    url: 'https://googlesamples.github.io/web-fundamentals/fundamentals/security/prevent-mixed-content/active-mixed-content.html',
-    status: 200,
-    mixedContent: []
-  }
-  //console.log('- - - -  scanning urls for mixed content errors');
-  results.unshift(google);
-  return scanMixedContent(results);
-}).then((mixedContentErrors) => {
-  const sorted = lodash.sortBy(mixedContentErrors, [function(o) {
+
+  // scan each site for mixed content errors
+  const results = await scanMixedContent(fetchResults);
+  const sorted = lodash.sortBy(results, [function(o) {
     return String(o.status);
   }]);
 
-  const table = new Table({
-    head: ['site-name', 'url', 'status', 'mixed-content'],
-    colWidths: [55, 55, 25, 55]
+  // only report the sites that have issues
+  const alertUrls = await sorted.filter(site => {
+    return site.status >= 400 ||
+      site.mixedContent.length > 0 ||
+      ['ECONNREFUSED', 'ENOTFOUND', 'CERT_HAS_EXPIRED', 'too many re-directs' ].includes(site.status);
   });
-  const alertUrls = sorted.filter(site => {
-    return site.status >= 400 || site.mixedContent.length > 0 || ['ECONNREFUSED', 'ENOTFOUND', 'too many re-directs' ].includes(site.status);
-  });
-
-  const formatted = alertUrls.map(obj => {
-    let status = obj.status;
-    let siteName = obj.siteName;
-
-    if (status == 'too many re-directs') {
-      status = chalk.yellow(status);
-      siteName = chalk.yellow(siteName);
-    }
-
-    if (status >= 400) {
-      status = chalk.red(status);
-      siteName = chalk.red(siteName);
-    } else status = chalk.green(status);
-    siteName = chalk.green(siteName);
-
-    return [siteName, obj.url, status, JSON.stringify(obj.mixedContent)];
-  });
-  formatted.forEach(item => {
-    table.push(item);
-  });
-
-
-  // table is an Array, so you can `push`, `unshift`, `splice` and friends
-
+  const table = await formatData(alertUrls);
   console.log(table.toString());
-}).catch((error) => {
-  console.error('Encountered an error while doing this thang:');
-  console.error(error);
-});
-//Next step...Make sure we return all data we need in promise chain
+}
+
+try {
+  main();
+} catch (error) {
+  console.log('Ooops!');
+  console.log(error);
+}
