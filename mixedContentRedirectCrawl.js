@@ -1,16 +1,23 @@
+//* 10 * * * /usr/local/bin/node /Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/mixedContentRedirectCrawl.js > /Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/results.txt
+
+
 const fetch = require('node-fetch');
 const parseCSV = require('./parseCSV').parseCSV;
 const Table = require('cli-table');
 const lodash = require('lodash');
 const chalk = require('chalk');
 const scanMixedContent = require('./scanMixedContentFunction').scanMixedContent;
-
-
+const {dataSelection} = require('./DbUtility');
+console.log('starting crawl');
 
 // This is where the magic happens
-
+dataSelection().then((data) => {
+  console.log(data);
+});
 // first parse the CSV
-parseCSV("./containerTagUrls.csv").then((data) => {
+parseCSV("/Users/mhanline/Desktop/Sovrn/puppeteerMixedContent/containerTagUrls.csv").then((data) => {
+  const dbData = dataSelection();
+
   const sites = data.filter(site => site[1].startsWith('https'));
   return sites;
 }, (reason) => {
@@ -24,7 +31,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     try {
       const response = await fetch(url, {
         redirect: 'follow',
-        follow: 1
+        follow: 2
       });
       return {
         response: response,
@@ -41,7 +48,16 @@ parseCSV("./containerTagUrls.csv").then((data) => {
           url
         }
       }
-      console.log(error);
+      if (['ECONNREFUSED', 'ENOTFOUND','CERT_HAS_EXPIRED'].includes(error.code)) {
+        return {
+          response: {
+            status: error.code
+          },
+          siteName,
+          url
+        }
+      }
+      console.log('error fetching site', error);
     }
 
   })).then((responses) => {
@@ -53,7 +69,10 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   // determine the status code response of each site and track them
   const results = [];
   data.responses.forEach(item => {
-    const fetchResponse = item.response;
+    if (!item) {
+      return;
+    }
+    const fetchResponse = item.response
     // add the url to array of urls under this status code
     // make a json object that has the siteName and the Url to push on the results array.
     results.push({
@@ -88,7 +107,7 @@ parseCSV("./containerTagUrls.csv").then((data) => {
     colWidths: [55, 55, 25, 55]
   });
   const alertUrls = sorted.filter(site => {
-    return site.status >= 400 || site.status == 'too many re-directs' || site.mixedContent.length > 0;
+    return site.status >= 400 || site.mixedContent.length > 0 || ['ECONNREFUSED', 'ENOTFOUND', 'too many re-directs' ].includes(site.status);
   });
 
   const formatted = alertUrls.map(obj => {
@@ -111,6 +130,8 @@ parseCSV("./containerTagUrls.csv").then((data) => {
   formatted.forEach(item => {
     table.push(item);
   });
+
+
   // table is an Array, so you can `push`, `unshift`, `splice` and friends
 
   console.log(table.toString());

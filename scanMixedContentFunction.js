@@ -41,7 +41,7 @@ const scanMixedContent = async (sites) => {
     }
   });
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < sites.length; i++) {
     const {
       url,
       status,
@@ -61,7 +61,7 @@ const scanMixedContent = async (sites) => {
 
 
   browser.close();
-  return sites;
+   return sites;
 }
 
 module.exports = {
