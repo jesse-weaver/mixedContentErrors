@@ -2,9 +2,18 @@ const lodash = require('lodash');
 const { parseCSV } = require('./parseCSV');
 const { scanMixedContent } = require('./scanMixedContentFunction');
 const { formatData, fetchSites } = require('./utils');
+const { getPubs } = require('./dbutils');
 
 const main = async () => {
   let sites;
+
+
+  const dbresults = await getPubs();
+  dbresults.forEach(function(element) {
+  console.log(element.id);
+  const {id, name, url} = element; 
+});
+  return;
 
   // parse the CSV to get the sites we are scanning
   try {

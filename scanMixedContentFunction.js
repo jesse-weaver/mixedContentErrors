@@ -33,6 +33,10 @@ const scanMixedContent = async (sites) => {
   page.on('close', request => {
     return failedRequests;
   });
+  page.on('error', error => {
+    console.log('itsallfekied');
+    console.log(error);
+  });
 
   // If a request failed due to a Mixed Content issue, log it
   page._client.on('Network.loadingFailed', event => {

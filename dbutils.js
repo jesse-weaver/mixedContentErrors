@@ -10,7 +10,7 @@ const mysql = require('mysql2/promise');
 // });
 
 
-async function dataSelection() {
+async function getPubs() {
   // get the client
   const mysql = require('mysql2/promise');
   // create the connection
@@ -21,13 +21,14 @@ async function dataSelection() {
     database: 'catnip'
   });
   // query database
-  const [rows, fields] = await connection.execute('SELECT * FROM `publisher`');
-  return {
-    rows,
-    fields
-  };
+  const [rows] = await connection.execute('SELECT * FROM `publisher`');
+
+  connection.end();
+
+
+  return rows;
 }
 
 module.exports = {
-  dataSelection
+  getPubs
 };
