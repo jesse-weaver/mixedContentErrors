@@ -1,18 +1,18 @@
 const Table = require('cli-table');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
-
 const fetchSites = (sites) => {
   return Promise.all(sites.map(async site => {
-    const [siteName, url] = site;
+    const {id, name, url} = site;
     try {
       const response = await fetch(url, {
         redirect: 'follow',
         follow: 1
       });
       return {
-        response: response,
-        siteName,
+        response,
+        id,
+        siteName: name,
         url
       };
     } catch (error) {
@@ -21,7 +21,8 @@ const fetchSites = (sites) => {
           response: {
             status: 'too many re-directs'
           },
-          siteName,
+          id,
+          siteName: name,
           url
         };
       }
@@ -30,7 +31,8 @@ const fetchSites = (sites) => {
           response: {
             status: error.code
           },
-          siteName,
+          id,
+          siteName: name,
           url
         };
       }
@@ -42,11 +44,12 @@ const fetchSites = (sites) => {
 const formatData = (sites) => {
   const table = new Table({
     head: ['site-name', 'url', 'status', 'mixed-content'],
-    colWidths: [50, 80, 20, 30]
+    colWidths: [25, 25, 25, 25]
   });
 
   const formatted = sites.map(obj => {
     let {
+      id,
       siteName,
       url,
       status,
