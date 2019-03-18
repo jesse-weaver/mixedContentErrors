@@ -1,13 +1,15 @@
 const Table = require('cli-table');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
+
+//requets each site to determine the status code
 const fetchSites = (sites) => {
   return Promise.all(sites.map(async site => {
     const {id, name, url} = site;
     try {
       const response = await fetch(url, {
         redirect: 'follow',
-        follow: 1
+        follow: 3
       });
       return {
         response,

@@ -45,7 +45,7 @@ const scanMixedContent = async (sites) => {
     }
   });
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < sites.length; i++) {
     const {
       url,
       status,

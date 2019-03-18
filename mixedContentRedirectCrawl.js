@@ -1,3 +1,5 @@
+
+//import statements
 const lodash = require('lodash');
 const {
   scanMixedContent
@@ -16,7 +18,7 @@ const main = async () => {
 
 
   const dbresults = await getPubs();
-  //!!!!input status codes, mixed content errors into database !!!!
+  //input status codes, mixed content errors into database !!!!
   // fetch each site and determine the status or if it has too many redirects
 
   const responses = await fetchSites(dbresults);
@@ -41,10 +43,11 @@ const main = async () => {
     });
 
   });
-  //console.log(fetchResults);
+
+  //inserts statuses into the database
   insertStatus(dataInsertValues);
 
-  //throw new Error('whoopsie');
+
   // scan each site for mixed content errors
   const results = await scanMixedContent(fetchResults);
   const sorted = lodash.sortBy(results, [function(o) {
@@ -54,15 +57,14 @@ const main = async () => {
   // only report the sites that have issues
   const alertUrls = await sorted.filter(site => {
     return site.status >= 400 ||
-      site.mixedContent.length > 0 || ['ECONNREFUSED', 'ENOTFOUND', 'CERT_HAS_EXPIRED', 'too many re-directs'].includes(site.status);
+      site.mixedContent.length > 0 || ['ECONNREFUSED', 'ENOTFOUND', 'CERT_HAS_EXPIRED', 'too many re-directs', 'net::ERR_NAME_NOT_RESOLVED'].includes(site.status);
   });
-  const table = await formatData(alertUrls);
-  console.log(table.toString());
+  const formattedOutput = await formatData(alertUrls);
+  console.log(formattedOutput.toString());
 }
 
 try {
   main();
 } catch (error) {
-  console.log('Ooops!');
   console.log(error);
 }
