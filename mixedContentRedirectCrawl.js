@@ -3,37 +3,48 @@
 const lodash = require('lodash');
 const {
   scanMixedContent
-} = require('./scanMixedContentFunction');
+} = require('./utils/scanMixedContentFunction');
 const {
+  ERROR_CODES,
   formatData,
   fetchSites
-} = require('./utils');
+} = require('./utils/utils');
 const {
-  getPubs, insertStatus
-} = require('./dbutils');
+  getPubs, insertStatus, insertSiteScan, getSiteScan
+} = require('./utils/dbutils');
 
 
 const main = async () => {
   let sites;
 
+  insertSiteScan(['scan sites']);
+  const siteScanRecord = await getSiteScan();
+  const siteScanId = siteScanRecord[0].siteScanId;
 
+
+  console.log('site scan id in your face: ', siteScanId);
+
+  // get all publishers from the database
   const dbresults = await getPubs();
-  //input status codes, mixed content errors into database !!!!
-  // fetch each site and determine the status or if it has too many redirects
 
+  // throw new Error('what??');
+
+  // fetch each site and determine the status or if it has too many redirects
   const responses = await fetchSites(dbresults);
   const fetchResults = [];
   const dataInsertValues = [];
 
   responses.forEach(item => {
     const fetchResponse = item.response;
-    // add the url to array of urls under this status code
-    // make a json object that has the siteName and the Url to push on the results array.
+    // set up array for the database inserts
     dataInsertValues.push([
       item.id,
-      fetchResponse.status,
-      (fetchResponse.status == 'too many re-directs' ? 1 : 0)
+      siteScanId,
+      (Number.isInteger(fetchResponse.status) ? fetchResponse.status : -1),
+      (!Number.isInteger(fetchResponse.status) ? fetchResponse.status : null)
     ]);
+
+    // make a json object that has the siteName and the Url to push on the results array.
     fetchResults.push({
       id: item.id,
       siteName: item.siteName,
@@ -44,9 +55,8 @@ const main = async () => {
 
   });
 
-  //inserts statuses into the database
+  // inserts status codes into the database
   insertStatus(dataInsertValues);
-
 
   // scan each site for mixed content errors
   const results = await scanMixedContent(fetchResults);
@@ -57,7 +67,7 @@ const main = async () => {
   // only report the sites that have issues
   const alertUrls = await sorted.filter(site => {
     return site.status >= 400 ||
-      site.mixedContent.length > 0 || ['ECONNREFUSED', 'ENOTFOUND', 'CERT_HAS_EXPIRED', 'too many re-directs', 'net::ERR_NAME_NOT_RESOLVED'].includes(site.status);
+      site.mixedContent.length > 0 || ERROR_CODES.includes(site.status);
   });
   const formattedOutput = await formatData(alertUrls);
   console.log(formattedOutput.toString());

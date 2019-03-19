@@ -2,6 +2,15 @@ const Table = require('cli-table');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
 
+const ERROR_CODES = [
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'CERT_HAS_EXPIRED',
+  'MAX_REDIRECTS',
+  'ERR_NAME_NOT_RESOLVED',
+  'ERR_ABORTED'
+];
+
 //requets each site to determine the status code
 const fetchSites = (sites) => {
   return Promise.all(sites.map(async site => {
@@ -9,7 +18,7 @@ const fetchSites = (sites) => {
     try {
       const response = await fetch(url, {
         redirect: 'follow',
-        follow: 3
+        follow: 1
       });
       return {
         response,
@@ -21,14 +30,14 @@ const fetchSites = (sites) => {
       if (error.type == 'max-redirect') {
         return {
           response: {
-            status: 'too many re-directs'
+            status: 'MAX_REDIRECTS'
           },
           id,
           siteName: name,
           url
         };
       }
-      if (['ECONNREFUSED', 'ENOTFOUND', 'CERT_HAS_EXPIRED'].includes(error.code)) {
+      if (ERROR_CODES.includes(error.code)) {
         return {
           response: {
             status: error.code
@@ -57,7 +66,7 @@ const formatData = (sites) => {
       status,
       mixedContent
     } = obj;
-    if (obj.status == 'too many re-directs') {
+    if (obj.status == 'MAX_REDIRECTS') {
       siteName = chalk.yellow(obj.siteName);
       url = chalk.yellow(obj.url);
       status = chalk.yellow(obj.status);
@@ -79,6 +88,7 @@ const formatData = (sites) => {
 }
 
 module.exports = {
+  ERROR_CODES,
   formatData,
   fetchSites
 };
